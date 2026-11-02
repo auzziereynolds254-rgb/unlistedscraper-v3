@@ -146,6 +146,8 @@ public:
 		m_probeCount = 0;
 		m_requests   = 0;
 		m_waitForId  = 10.f;
+		m_objsSeen   = 0;
+		m_objsMatched = 0;
 		m_queue.clear();
 		m_probeList.clear();
 		m_levels.clear();
@@ -217,6 +219,8 @@ protected:
 	int   m_range      = 8;
 	int   m_maxProbes  = 400;
 	int   m_maxPages   = 10;
+	int   m_objsSeen   = 0;
+	int   m_objsMatched = 0;
 	bool  m_armed      = false;
 	bool  m_built      = false;
 	bool  m_finished   = false;
@@ -352,10 +356,15 @@ protected:
 	}
 
 	void handleLevels(std::string const& body) {
-		auto parts = utils::string::split(body, "#");
-		for (size_t i = 1; i < parts.size(); ++i) {
-			if (parts[i].empty() || parts[i] == "-1") continue;
-			auto f = parseObj(parts[i]);
+		auto sections = utils::string::split(body, "#");
+		if (sections.empty()) return;
+
+		auto objs = utils::string::split(sections[0], "|");
+		m_objsSeen += (int)objs.size();
+
+		for (auto const& obj : objs) {
+			if (obj.empty() || obj == "-1") continue;
+			auto f = parseObj(obj);
 			auto uidIt = f.find(6);
 			auto lidIt = f.find(1);
 			if (uidIt == f.end() || lidIt == f.end()) continue;
@@ -367,7 +376,8 @@ protected:
 			for (auto const& l : m_levels) if (l.id == lid) { dup = true; break; }
 			if (dup) continue;
 
-			m_levels.push_back({ lid, parts[i], m_phase == 0 ? "list" : "probe" });
+			m_objsMatched++;
+			m_levels.push_back({ lid, obj, m_phase == 0 ? "list" : "probe" });
 			if (m_phase == 1) {
 				m_seen.insert(lid);
 				enqueueAround(lid, std::min(m_range, 3));
@@ -396,10 +406,13 @@ protected:
 
 	std::string buildJson() {
 		std::string j = "{\n";
+		j += "  \"modVersion\": \"1.0.1\",\n";
 		j += fmt::format("  \"target\": {{\"accountID\": {}, \"userID\": {}, \"username\": \"{}\"}},\n",
 			m_accountID, m_userID, esc(m_username));
 		j += fmt::format("  \"stats\": {{\"requests\": {}, \"probes\": {}, \"levelsFound\": {}}},\n",
 			m_requests, m_probeCount, m_levels.size());
+		j += fmt::format("  \"diag\": {{\"objsSeen\": {}, \"objsMatched\": {}}},\n",
+			m_objsSeen, m_objsMatched);
 		j += "  \"note\": \"source=list came from a list/search endpoint; source=probe was found by ID probing and is likely unlisted. Raw field keys are GD's own.\",\n";
 		j += "  \"userInfoRaw\": \"" + esc(m_userInfoRaw) + "\",\n";
 		j += "  \"levels\": [\n";
