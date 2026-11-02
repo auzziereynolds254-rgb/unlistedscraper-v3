@@ -5,7 +5,7 @@
 	},
 	"id": "venice.unlisted_scraper",
 	"name": "Unlisted Scraper",
-	"version": "v1.0.1",
+	"version": "v1.0.3",
 	"developer": "Venice",
 	"description": "Dumps everything the servers will give up about a user's levels, then ID-probes around known uploads to surface unlisted ones.",
 	"tags": ["utility", "enhancement"],
@@ -20,23 +20,23 @@
 			"name": "Probe radius",
 			"description": "How many level IDs to check on each side of every known level ID.",
 			"type": "int",
-			"default": 8,
+			"default": 40,
 			"min": 0,
-			"max": 200
+			"max": 500
 		},
 		"max-probes": {
 			"name": "Max probes",
 			"description": "Hard cap on total ID probes per scan.",
 			"type": "int",
-			"default": 400,
+			"default": 1500,
 			"min": 0,
-			"max": 5000
+			"max": 20000
 		},
 		"delay": {
 			"name": "Request delay (ms)",
 			"description": "Gap between requests. Below ~150ms the server starts throwing -1s.",
 			"type": "int",
-			"default": 250,
+			"default": 150,
 			"min": 80,
 			"max": 2000
 		},
@@ -50,6 +50,12 @@
 		"scan-comments": {
 			"name": "Scrape profile comments for IDs",
 			"description": "Creators often drop unlisted IDs in comments. Slower but worth it.",
+			"type": "bool",
+			"default": true
+		},
+		"era-scan": {
+			"name": "Era sweep when few levels",
+			"description": "If a user has fewer than 3 public levels, sweep the ID band estimated from their account ID. Helps on accounts with no visible uploads.",
 			"type": "bool",
 			"default": true
 		}
