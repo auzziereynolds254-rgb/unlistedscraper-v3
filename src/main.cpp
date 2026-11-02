@@ -100,8 +100,11 @@ public:
 		m_label->setScale(0.42f);
 		m_label->setAnchorPoint({0.5f, 1.f});
 		m_label->setPosition({0.f, -18.f});
-		m_label->setOpacity(220);
+		m_label->setOpacity(230);
 		this->addChild(m_label);
+
+		m_label->setColor({255, 220, 80});
+		updateLabel();
 
 		this->scheduleUpdate();
 		return true;
@@ -112,6 +115,7 @@ public:
 	void startNow() {
 		if (m_running || m_finished) return;
 		m_startDelay = 0.f;
+		updateLabel();
 	}
 
 	void restart() {
@@ -142,6 +146,7 @@ public:
 
 		if (m_userID <= 0) {
 			resolveIds();
+			updateLabel();
 			if (m_userID <= 0) {
 				m_waitForId -= dt;
 				if (m_waitForId <= 0.f) finish();
