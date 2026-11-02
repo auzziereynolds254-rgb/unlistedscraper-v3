@@ -1,4 +1,6 @@
-"gd": {
+{
+	"geode": "5.11.2",
+	"gd": {
 		"win": "2.2081"
 	},
 	"id": "venice.unlisted_scraper",
