@@ -76,9 +76,11 @@ public:
 		std::string src;
 	};
 
-	static ScraperNode* create(int accountID, int userID, std::string const& username) {
+	ProfilePage* m_page = nullptr;
+
+	static ScraperNode* create(int accountID) {
 		auto ret = new ScraperNode();
-		if (ret && ret->init(accountID, userID, username)) {
+		if (ret && ret->init(accountID)) {
 			ret->autorelease();
 			return ret;
 		}
@@ -86,11 +88,9 @@ public:
 		return nullptr;
 	}
 
-	bool init(int accountID, int userID, std::string const& username) {
+	bool init(int accountID) {
 		if (!CCNode::init()) return false;
 		m_accountID = accountID;
-		m_userID    = userID;
-		m_username  = username;
 		m_delay     = Mod::get()->getSettingValue<int>("delay") / 1000.f;
 		m_range     = Mod::get()->getSettingValue<int>("probe-range");
 		m_maxProbes = Mod::get()->getSettingValue<int>("max-probes");
@@ -125,6 +125,7 @@ public:
 		m_probeIdx   = 0;
 		m_probeCount = 0;
 		m_requests   = 0;
+		m_waitForId  = 10.f;
 		m_queue.clear();
 		m_probeList.clear();
 		m_levels.clear();
@@ -138,6 +139,15 @@ public:
 
 	void update(float dt) override {
 		if (m_finished) return;
+
+		if (m_userID <= 0) {
+			resolveIds();
+			if (m_userID <= 0) {
+				m_waitForId -= dt;
+				if (m_waitForId <= 0.f) finish();
+				return;
+			}
+		}
 
 		if (m_startDelay > 0.f) {
 			m_startDelay -= dt;
@@ -182,6 +192,7 @@ protected:
 	float m_startDelay = 0.65f;
 	float m_cooldown   = 0.f;
 	float m_delay      = 0.25f;
+	float m_waitForId  = 10.f;
 	int   m_range      = 8;
 	int   m_maxProbes  = 400;
 	int   m_maxPages   = 10;
@@ -203,6 +214,14 @@ protected:
 	std::set<int> m_seen;
 	std::string m_userInfoRaw;
 	cocos2d::CCLabelBMFont* m_label = nullptr;
+
+	void resolveIds() {
+		if (!m_page || !m_page->m_score) return;
+		auto score = m_page->m_score;
+		if (score->m_userID > 0)    m_userID = score->m_userID;
+		if (score->m_accountID > 0) m_accountID = score->m_accountID;
+		if (m_username.empty())     m_username = score->m_userName;
+	}
 
 	void buildQueue() {
 		if (m_userID <= 0) { finish(); return; }
@@ -338,6 +357,7 @@ protected:
 	void updateLabel() {
 		if (!m_label) return;
 		if (m_finished) return;
+		if (m_userID <= 0) { m_label->setString("waiting for profile..."); return; }
 		if (m_startDelay > 0.f && !m_running) {
 			m_label->setString("preparing...");
 			return;
@@ -352,7 +372,7 @@ protected:
 			m_accountID, m_userID, esc(m_username));
 		j += fmt::format("  \"stats\": {{\"requests\": {}, \"probes\": {}, \"levelsFound\": {}}},\n",
 			m_requests, m_probeCount, m_levels.size());
-		j += "  \"note\": \"source=list came from a list/search endpoint; source=probe was found by ID probing and is likely unlisted. Raw field keys are GD's own; key 68 is the unlisted flag on servers that send it.\",\n";
+		j += "  \"note\": \"source=list came from a list/search endpoint; source=probe was found by ID probing and is likely unlisted. Raw field keys are GD's own.\",\n";
 		j += "  \"userInfoRaw\": \"" + esc(m_userInfoRaw) + "\",\n";
 		j += "  \"levels\": [\n";
 
@@ -405,7 +425,7 @@ protected:
 			"{} level objects, {} requests.\n\nJSON copied to clipboard.{}\n\n{}",
 			m_levels.size(), m_requests,
 			saved ? "\nSaved to:\n" + path.string() : "\nFile save failed.",
-			m_levels.empty() ? "No levels returned - the user may have no public uploads." : "");
+			m_levels.empty() ? "No levels returned." : "");
 
 		if (auto alert = FLAlertLayer::create("Scan Complete", msg, "OK")) alert->show();
 	}
@@ -421,10 +441,6 @@ class $modify(VSProfilePage, ProfilePage) {
 	bool init(int accountID, bool ownProfile) {
 		if (!ProfilePage::init(accountID, ownProfile)) return false;
 
-		int acc = accountID;
-		int uid = (int)m_userID;
-		if (uid <= 0) return true;
-
 		auto host = findMainLayer(this);
 		if (!host) host = this;
 
@@ -439,7 +455,8 @@ class $modify(VSProfilePage, ProfilePage) {
 		menu->setPosition({ sz.width - 56.f, sz.height - 34.f });
 		host->addChild(menu, 60);
 
-		auto node = ScraperNode::create(acc, uid, std::string(m_username));
+		auto node = ScraperNode::create(accountID);
+		node->m_page = this;
 		node->setID("scraper-node"_spr);
 		node->setPosition({ sz.width - 56.f, sz.height - 34.f });
 		this->addChild(node, 61);
