@@ -214,10 +214,10 @@ protected:
 
 	float m_startDelay = 0.f;
 	float m_cooldown   = 0.f;
-	float m_delay      = 0.25f;
+	float m_delay      = 0.15f;
 	float m_waitForId  = 10.f;
-	int   m_range      = 8;
-	int   m_maxProbes  = 400;
+	int   m_range      = 40;
+	int   m_maxProbes  = 1500;
 	int   m_maxPages   = 10;
 	int   m_objsSeen   = 0;
 	int   m_objsMatched = 0;
@@ -294,16 +294,42 @@ protected:
 
 	void beginProbing() {
 		m_phase = 1;
-		for (auto const& l : m_levels) {
-			m_seen.insert(l.id);
-			enqueueAround(l.id, m_range);
+
+		std::vector<int> seeds;
+		seeds.reserve(m_levels.size() + m_commentIds.size());
+		for (auto const& l : m_levels) seeds.push_back(l.id);
+		for (int id : m_commentIds) seeds.push_back(id);
+		for (int s : seeds) m_seen.insert(s);
+
+		// Few or no visible levels: sweep the era estimated from the account ID.
+		if (seeds.size() < 3 && m_accountID > 0 &&
+			Mod::get()->getSettingValue<bool>("era-scan")) {
+			long long anchor = (long long)((double)m_accountID * 9.4);
+			for (int off = -24000; off <= 24000; off += 400) {
+				int id = (int)(anchor + off);
+				if (id <= 0) continue;
+				if (m_seen.count(id)) continue;
+				if ((int)m_probeList.size() >= m_maxProbes) break;
+				m_seen.insert(id);
+				m_probeList.push_back(id);
+			}
 		}
-		for (int id : m_commentIds) {
-			if (m_seen.count(id)) continue;
+
+		// Ring outwards: distance 1 across every seed, then 2, then 3...
+		for (int d = 1; d <= m_range; ++d) {
+			for (int s : seeds) {
+				for (int id : { s - d, s + d }) {
+					if (id <= 0) continue;
+					if (m_seen.count(id)) continue;
+					if ((int)m_probeList.size() >= m_maxProbes) break;
+					m_seen.insert(id);
+					m_probeList.push_back(id);
+				}
+				if ((int)m_probeList.size() >= m_maxProbes) break;
+			}
 			if ((int)m_probeList.size() >= m_maxProbes) break;
-			m_seen.insert(id);
-			m_probeList.push_back(id);
 		}
+
 		if (m_probeList.empty()) { finish(); return; }
 		updateLabel();
 	}
@@ -380,7 +406,7 @@ protected:
 			m_levels.push_back({ lid, obj, m_phase == 0 ? "list" : "probe" });
 			if (m_phase == 1) {
 				m_seen.insert(lid);
-				enqueueAround(lid, std::min(m_range, 3));
+				enqueueAround(lid, std::min(m_range, 5));
 			}
 		}
 	}
@@ -406,7 +432,7 @@ protected:
 
 	std::string buildJson() {
 		std::string j = "{\n";
-		j += "  \"modVersion\": \"1.0.1\",\n";
+		j += "  \"modVersion\": \"1.0.3\",\n";
 		j += fmt::format("  \"target\": {{\"accountID\": {}, \"userID\": {}, \"username\": \"{}\"}},\n",
 			m_accountID, m_userID, esc(m_username));
 		j += fmt::format("  \"stats\": {{\"requests\": {}, \"probes\": {}, \"levelsFound\": {}}},\n",
