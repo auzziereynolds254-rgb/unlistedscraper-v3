@@ -6,6 +6,7 @@
 #include <Geode/modify/ProfilePage.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <ctime>
@@ -21,6 +22,20 @@ namespace {
 
 constexpr char const* kBase   = "https://www.boomlings.com/database/";
 constexpr char const* kSecret = "Wmfd2893gb7";
+
+std::string urlenc(std::string const& s) {
+	std::string o;
+	o.reserve(s.size() * 3);
+	for (unsigned char c : s) {
+		if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') o += (char)c;
+		else {
+			char b[4];
+			snprintf(b, sizeof(b), "%%%02X", c);
+			o += b;
+		}
+	}
+	return o;
+}
 
 std::string esc(std::string const& s) {
 	std::string o;
@@ -292,24 +307,34 @@ protected:
 	void fire(std::string const& ep, Params params) {
 		m_inFlight = true;
 		m_requests++;
+
 		std::string url = std::string(kBase) + ep;
+		std::string post = "gameVersion=22&binaryVersion=42&gdw=0&secret=";
+		post += kSecret;
+		for (auto const& [k, v] : params) {
+			post += '&';
+			post += k;
+			post += '=';
+			post += urlenc(v);
+		}
+
 		this->retain();
 
-		arc::spawn([this, url, params, ep]() -> arc::Future<> {
+		arc::spawn([this, url, post, ep]() -> arc::Future<> {
 			auto req = web::WebRequest();
-			req.header("User-Agent", "");
+			req.header("Content-Type", "application/x-www-form-urlencoded");
 			req.timeout(std::chrono::seconds(20));
-			req.param("gameVersion", "22");
-			req.param("binaryVersion", "42");
-			req.param("gdw", "0");
-			req.param("secret", kSecret);
-			for (auto const& [k, v] : params) req.param(k, v);
+			req.bodyString(post);
 
 			auto res = co_await req.post(url);
 
 			m_inFlight = false;
-			std::string body;
-			if (res.ok()) body = res.string().unwrapOr(std::string());
+			int code = (int)res.code();
+			std::string raw = res.string().unwrapOr(std::string());
+
+			m_rawBlocks.push_back(fmt::format("[{}] http {} len {}\n{}", ep, code, raw.size(), raw));
+
+			std::string body = raw;
 			if (body == "-1" || body == "-2" || body == "error code: 1005") body.clear();
 
 			if (!body.empty()) {
@@ -320,7 +345,6 @@ protected:
 				} else if (ep == "getGJComments21") {
 					handleComments(body);
 				}
-				m_rawBlocks.push_back("=== " + ep + " ===\n" + body);
 			}
 			updateLabel();
 			this->release();
@@ -471,7 +495,6 @@ class $modify(VSProfilePage, ProfilePage) {
 
 	void onScan(cocos2d::CCObject*) {
 		auto node = m_fields->scraper;
-		if (!node) return;
 		if (node->isFinished()) node->restart();
 		else node->startNow();
 	}
