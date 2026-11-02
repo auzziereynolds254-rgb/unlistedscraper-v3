@@ -5,7 +5,7 @@
 	},
 	"id": "venice.unlisted_scraper",
 	"name": "Unlisted Scraper",
-	"version": "v1.0.0",
+	"version": "v1.0.1",
 	"developer": "Venice",
 	"description": "Dumps everything the servers will give up about a user's levels, then ID-probes around known uploads to surface unlisted ones.",
 	"tags": ["utility", "enhancement"],
