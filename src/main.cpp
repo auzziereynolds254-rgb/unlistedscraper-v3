@@ -101,11 +101,10 @@ public:
 		m_label->setAnchorPoint({0.5f, 1.f});
 		m_label->setPosition({0.f, -18.f});
 		m_label->setOpacity(230);
+		m_label->setColor({255, 220, 80});
 		this->addChild(m_label);
 
-		m_label->setColor({255, 220, 80});
 		updateLabel();
-
 		this->scheduleUpdate();
 		return true;
 	}
@@ -113,16 +112,18 @@ public:
 	bool isFinished() const { return m_finished; }
 
 	void startNow() {
-		if (m_running || m_finished) return;
-		m_startDelay = 0.f;
+		if (m_armed || m_finished) return;
+		m_armed      = true;
+		m_startDelay = 0.4f;
 		updateLabel();
 	}
 
 	void restart() {
 		m_finished   = false;
-		m_running    = true;
+		m_armed      = true;
 		m_inFlight   = false;
-		m_startDelay = 0.f;
+		m_built      = false;
+		m_startDelay = 0.4f;
 		m_cooldown   = 0.f;
 		m_phase      = 0;
 		m_queueIdx   = 0;
@@ -137,12 +138,17 @@ public:
 		m_commentIds.clear();
 		m_userInfoRaw.clear();
 		m_seen.clear();
-		buildQueue();
 		updateLabel();
 	}
 
 	void update(float dt) override {
-		if (m_finished) return;
+		if (m_finished || !m_armed) return;
+
+		if (m_startDelay > 0.f) {
+			m_startDelay -= dt;
+			updateLabel();
+			return;
+		}
 
 		if (m_userID <= 0) {
 			resolveIds();
@@ -154,16 +160,11 @@ public:
 			}
 		}
 
-		if (m_startDelay > 0.f) {
-			m_startDelay -= dt;
-			if (m_startDelay <= 0.f) {
-				m_running  = true;
-				m_cooldown = 0.f;
-				buildQueue();
-			}
-			return;
+		if (!m_built) {
+			m_built = true;
+			buildQueue();
 		}
-		if (!m_running || m_inFlight) return;
+		if (m_inFlight) return;
 
 		m_cooldown -= dt;
 		if (m_cooldown > 0.f) return;
@@ -194,14 +195,15 @@ protected:
 	int m_userID    = 0;
 	std::string m_username;
 
-	float m_startDelay = 0.65f;
+	float m_startDelay = 0.f;
 	float m_cooldown   = 0.f;
 	float m_delay      = 0.25f;
 	float m_waitForId  = 10.f;
 	int   m_range      = 8;
 	int   m_maxProbes  = 400;
 	int   m_maxPages   = 10;
-	bool  m_running    = false;
+	bool  m_armed      = false;
+	bool  m_built      = false;
 	bool  m_finished   = false;
 	bool  m_inFlight   = false;
 	int   m_phase      = 0;
@@ -360,13 +362,10 @@ protected:
 	}
 
 	void updateLabel() {
-		if (!m_label) return;
-		if (m_finished) return;
+		if (!m_label || m_finished) return;
+		if (!m_armed) { m_label->setString(""); return; }
 		if (m_userID <= 0) { m_label->setString("waiting for profile..."); return; }
-		if (m_startDelay > 0.f && !m_running) {
-			m_label->setString("preparing...");
-			return;
-		}
+		if (m_startDelay > 0.f) { m_label->setString("preparing..."); return; }
 		m_label->setString(fmt::format("{} req / {} probes / {} found",
 			m_requests, m_probeCount, m_levels.size()).c_str());
 	}
@@ -415,7 +414,6 @@ protected:
 	void finish() {
 		if (m_finished) return;
 		m_finished = true;
-		m_running  = false;
 
 		auto json = buildJson();
 		auto dir  = Mod::get()->getSaveDir() / "scans";
