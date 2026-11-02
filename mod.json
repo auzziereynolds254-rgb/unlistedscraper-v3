@@ -1,0 +1,60 @@
+{
+	"geode": "5.11.2",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "venice.unlisted_scraper",
+	"name": "Unlisted Scraper",
+	"version": "v1.0.0",
+	"developer": "Venice",
+	"description": "Dumps everything the servers will give up about a user's levels, then ID-probes around known uploads to surface unlisted ones.",
+	"tags": ["utility", "enhancement"],
+	"settings": {
+		"auto-scan": {
+			"name": "Auto-scan on profile open",
+			"description": "Start a scan automatically whenever a profile page loads.",
+			"type": "bool",
+			"default": true
+		},
+		"probe-range": {
+			"name": "Probe radius",
+			"description": "How many level IDs to check on each side of every known level ID.",
+			"type": "int",
+			"default": 8,
+			"min": 0,
+			"max": 200
+		},
+		"max-probes": {
+			"name": "Max probes",
+			"description": "Hard cap on total ID probes per scan.",
+			"type": "int",
+			"default": 400,
+			"min": 0,
+			"max": 5000
+		},
+		"delay": {
+			"name": "Request delay (ms)",
+			"description": "Gap between requests. Below ~150ms the server starts throwing -1s.",
+			"type": "int",
+			"default": 250,
+			"min": 80,
+			"max": 2000
+		},
+		"max-pages": {
+			"name": "Max level list pages",
+			"type": "int",
+			"default": 10,
+			"min": 1,
+			"max": 60
+		},
+		"scan-comments": {
+			"name": "Scrape profile comments for IDs",
+			"description": "Creators often drop unlisted IDs in comments. Slower but worth it.",
+			"type": "bool",
+			"default": true
+		}
+	}
+}
