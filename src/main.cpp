@@ -3,12 +3,15 @@
 #include <Geode/utils/string.hpp>
 #include <Geode/utils/file.hpp>
 #include <Geode/utils/general.hpp>
+#include <Geode/utils/clipboard.hpp>
 #include <Geode/modify/ProfilePage.hpp>
 
+#include <algorithm>
+#include <cstdio>
+#include <ctime>
 #include <map>
 #include <regex>
 #include <set>
-#include <fstream>
 
 #if __has_include(<arc/prelude.hpp>)
 	#include <arc/prelude.hpp>
@@ -282,12 +285,10 @@ protected:
 		this->retain();
 
 		VS_SPAWN(req.post(url), [this, ep](web::WebResponse res) {
-			auto guard = cocos2d::Ref(this);
-
 			m_inFlight = false;
 			std::string body;
-			if (res.ok()) body = res.string().unwrapOr("");
-			if (body == "-1" || body == "error code: 1005" || body == "-2") body.clear();
+			if (res.ok()) body = res.string().unwrapOr(std::string());
+			if (body == "-1" || body == "-2" || body == "error code: 1005") body.clear();
 
 			if (!body.empty()) {
 				if (ep == "getGJLevels21") {
@@ -399,7 +400,7 @@ protected:
 		auto dir  = Mod::get()->getSaveDir() / "scans";
 		utils::file::createDirectoryAll(dir);
 		auto path = dir / fmt::format("{}.json", m_userID);
-		auto wrote = utils::file::writeString(path, json);
+		bool saved = utils::file::writeString(path, json).isOk();
 		utils::clipboard::write(json);
 
 		if (m_label) m_label->setString(fmt::format("done: {} levels", m_levels.size()).c_str());
@@ -407,8 +408,8 @@ protected:
 		std::string msg = fmt::format(
 			"{} level objects, {} requests.\n\nJSON copied to clipboard.{}\n\n{}",
 			m_levels.size(), m_requests,
-			wrote ? "\nSaved to:\n" + path.string() : "\nFile save failed.",
-			m_levels.empty() ? "No levels returned — the user may have no public uploads." : "");
+			saved ? "\nSaved to:\n" + path.string() : "\nFile save failed.",
+			m_levels.empty() ? "No levels returned - the user may have no public uploads." : "");
 
 		if (auto alert = FLAlertLayer::create("Scan Complete", msg, "OK")) alert->show();
 	}
