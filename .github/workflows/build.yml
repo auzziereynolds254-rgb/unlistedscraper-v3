@@ -29,6 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout Geode SDK
+        uses: actions/checkout@v4
+        with:
+          repository: geode-sdk/geode
+          ref: v5.11.2
+          path: Geode
+          submodules: recursive
+
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
