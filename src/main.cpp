@@ -3,7 +3,6 @@
 #include <Geode/utils/string.hpp>
 #include <Geode/utils/file.hpp>
 #include <Geode/utils/general.hpp>
-#include <Geode/utils/clipboard.hpp>
 #include <Geode/modify/ProfilePage.hpp>
 
 #include <algorithm>
