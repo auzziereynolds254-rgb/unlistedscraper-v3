@@ -8,23 +8,8 @@ on:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-        - name: Windows
-          os: windows-latest
-        - name: macOS
-          os: macos-latest
-        - name: Android32
-          os: ubuntu-latest
-          target: Android32
-        - name: Android64
-          os: ubuntu-latest
-          target: Android64
-
-    name: ${{ matrix.config.name }}
-    runs-on: ${{ matrix.config.os }}
+    name: Windows
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +19,7 @@ jobs:
         with:
           repository: geode-sdk/geode
           ref: v5.11.2
-          path: Geode
+          path: geode-sdk-clone
           submodules: recursive
 
       - name: Build the mod
@@ -46,7 +31,6 @@ jobs:
           bindings: geode-sdk/bindings
           bindings-ref: main
           combine: true
-          target: ${{ matrix.config.target }}
 
   package:
     name: Package builds
