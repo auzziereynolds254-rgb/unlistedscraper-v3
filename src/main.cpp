@@ -6,18 +6,14 @@
 #include <Geode/modify/ProfilePage.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <ctime>
 #include <map>
 #include <regex>
 #include <set>
 
-#if __has_include(<arc/prelude.hpp>)
-	#include <arc/prelude.hpp>
-	#define VS_SPAWN(...) ::arc::spawn(__VA_ARGS__)
-#else
-	#define VS_SPAWN(...) ::geode::async::spawn(__VA_ARGS__)
-#endif
+#include <arc/prelude.hpp>
 
 using namespace geode::prelude;
 
@@ -270,20 +266,21 @@ protected:
 	void fire(std::string const& ep, Params params) {
 		m_inFlight = true;
 		m_requests++;
-
-		auto req = web::WebRequest();
-		req.header("User-Agent", "");
-		req.timeout(20);
-		req.param("gameVersion", "22");
-		req.param("binaryVersion", "42");
-		req.param("gdw", "0");
-		req.param("secret", kSecret);
-		for (auto const& [k, v] : params) req.param(k, v);
-
 		std::string url = std::string(kBase) + ep;
 		this->retain();
 
-		VS_SPAWN(req.post(url), [this, ep](web::WebResponse res) {
+		arc::spawn([this, url, params, ep]() -> arc::Future<> {
+			auto req = web::WebRequest();
+			req.header("User-Agent", "");
+			req.timeout(std::chrono::seconds(20));
+			req.param("gameVersion", "22");
+			req.param("binaryVersion", "42");
+			req.param("gdw", "0");
+			req.param("secret", kSecret);
+			for (auto const& [k, v] : params) req.param(k, v);
+
+			auto res = co_await req.post(url);
+
 			m_inFlight = false;
 			std::string body;
 			if (res.ok()) body = res.string().unwrapOr(std::string());
@@ -363,7 +360,7 @@ protected:
 			auto const& L = m_levels[i];
 			auto f = parseObj(L.raw);
 			std::string name;
-			if (auto n = f.find(2); n != f.end()) name = utils::string::urlDecode(n->second);
+			if (auto n = f.find(2); n != f.end()) name = cocos2d::ZipUtils::urlDecode(n->second);
 
 			j += "    {\"id\": " + std::to_string(L.id);
 			j += ", \"source\": \"" + esc(L.src) + "\"";
@@ -397,7 +394,7 @@ protected:
 
 		auto json = buildJson();
 		auto dir  = Mod::get()->getSaveDir() / "scans";
-		utils::file::createDirectoryAll(dir);
+		(void)utils::file::createDirectoryAll(dir);
 		auto path = dir / fmt::format("{}.json", m_userID);
 		bool saved = utils::file::writeString(path, json).isOk();
 		utils::clipboard::write(json);
@@ -421,19 +418,18 @@ class $modify(VSProfilePage, ProfilePage) {
 		ScraperNode* scraper = nullptr;
 	};
 
-	bool init(GJUserScore* score) {
-		if (!ProfilePage::init(score)) return false;
-		if (!score) return true;
+	bool init(int accountID, bool ownProfile) {
+		if (!ProfilePage::init(accountID, ownProfile)) return false;
 
-		int acc = score->getAccountID();
-		int uid = score->getUserID();
+		int acc = accountID;
+		int uid = (int)m_userID;
 		if (uid <= 0) return true;
 
 		auto host = findMainLayer(this);
 		if (!host) host = this;
 
 		auto spr  = ButtonSprite::create("SCAN", "goldFont.fnt", "GJ_button_01.png", 0.62f);
-		auto item = cocos2d::CCMenuItemSpriteExtra::create(
+		auto item = CCMenuItemSpriteExtra::create(
 			spr, this, menu_selector(VSProfilePage::onScan));
 
 		auto menu = cocos2d::CCMenu::create();
@@ -443,7 +439,7 @@ class $modify(VSProfilePage, ProfilePage) {
 		menu->setPosition({ sz.width - 56.f, sz.height - 34.f });
 		host->addChild(menu, 60);
 
-		auto node = ScraperNode::create(acc, uid, score->getUserName());
+		auto node = ScraperNode::create(acc, uid, std::string(m_username));
 		node->setID("scraper-node"_spr);
 		node->setPosition({ sz.width - 56.f, sz.height - 34.f });
 		this->addChild(node, 61);
