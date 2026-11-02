@@ -308,7 +308,7 @@ protected:
 		m_inFlight = true;
 		m_requests++;
 
-		std::string url = std::string(kBase) + ep;
+		std::string url = std::string(kBase) + ep + ".php";
 		std::string post = "gameVersion=22&binaryVersion=42&gdw=0&secret=";
 		post += kSecret;
 		for (auto const& [k, v] : params) {
@@ -495,6 +495,7 @@ class $modify(VSProfilePage, ProfilePage) {
 
 	void onScan(cocos2d::CCObject*) {
 		auto node = m_fields->scraper;
+		if (!node) return;
 		if (node->isFinished()) node->restart();
 		else node->startNow();
 	}
