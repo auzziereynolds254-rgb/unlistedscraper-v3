@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(unlisted_scraper LANGUAGES C CXX)
 
-# Locate the Geode SDK: env var first, then a local sibling checkout, then in-repo.
+# Locate the Geode SDK: env var first, then known clone locations.
 if(DEFINED ENV{GEODE_SDK} AND EXISTS "$ENV{GEODE_SDK}/CMakeLists.txt")
     set(GEODE_SDK "$ENV{GEODE_SDK}")
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../Geode/CMakeLists.txt")
@@ -23,20 +23,23 @@ add_subdirectory(${GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/Geode)
 
 add_library(${PROJECT_NAME} SHARED src/main.cpp)
 
-# The SDK's link target has been renamed across versions; take whichever exists.
+# Diagnostic: show what the SDK actually exports.
+get_property(_sdk_targets DIRECTORY "${GEODE_SDK}/loader" PROPERTY BUILDSYSTEM_TARGETS)
+message(STATUS "SDK loader targets: ${_sdk_targets}")
+
+setup_geode_mod(${PROJECT_NAME})
+
 set(GEODE_LINK_TARGET "")
-foreach(candidate Geode::Loader Geode::Geode Geode::GeodeLoader Geode)
+foreach(candidate Geode::Loader Geode::Geode Geode::SDK Geode::GeodeLoader Geode)
     if(TARGET ${candidate})
         set(GEODE_LINK_TARGET ${candidate})
         break()
     endif()
 endforeach()
 
-if(NOT GEODE_LINK_TARGET)
-    message(FATAL_ERROR "No Geode link target found - check the SDK's loader/CMakeLists.txt")
+if(GEODE_LINK_TARGET)
+    message(STATUS "Linking ${PROJECT_NAME} against ${GEODE_LINK_TARGET}")
+    target_link_libraries(${PROJECT_NAME} ${GEODE_LINK_TARGET})
+else()
+    message(WARNING "No Geode link target found; relying on setup_geode_mod")
 endif()
-
-message(STATUS "Linking ${PROJECT_NAME} against ${GEODE_LINK_TARGET}")
-target_link_libraries(${PROJECT_NAME} ${GEODE_LINK_TARGET})
-
-setup_geode_mod(${PROJECT_NAME})
